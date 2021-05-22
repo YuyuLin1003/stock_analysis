@@ -530,3 +530,7 @@ MigrationBackup/
 
 # End of https://www.toptal.com/developers/gitignore/api/jupyternotebooks,venv,vs,python
 x1.00
+
+
+# Extra file
+test.ipnb
