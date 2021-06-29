@@ -29,7 +29,7 @@ sns.set_theme()
 
 # %%
 class Stock:
-    def __init__(self,  label, start=None, end=None,priceScoreWeight=0.5):
+    def __init__(self,  label, start=None, end=None,priceScoreWeight=0.7):
         self.label = label
         self.start = start
         self.end = end
