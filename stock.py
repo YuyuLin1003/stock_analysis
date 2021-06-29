@@ -29,22 +29,30 @@ sns.set_theme()
 
 # %%
 class Stock:
-    def __init__(self,  label, start, end):
+    def __init__(self,  label, start=None, end=None,priceScoreWeight=0.5):
         self.label = label
         self.start = start
         self.end = end
+        if priceScoreWeight >1 or priceScoreWeight <0:
+            priceScoreWeight=0.5
+        self.priceScoreWeight=priceScoreWeight
         self.stockData = self.getStockData()
 
     def getStockData(self):
+        if self.start is None or self.end is None:
+            self.end = datetime.date.today()
+            self.start = self.end - datetime.timedelta(700)
         stock = web.DataReader(self.label, 'yahoo', self.start, self.end)[
             ['Close', 'Volume']].round(2)
         addMAData(stock)
         addMAScore(stock)
         addPriceScore(stock)
-        addSumScore(stock)
+        addSumScore(stock,self.priceScoreWeight)
         addPriceDelta(stock)
         return stock
-
+    def updateSumScore(self,priceScoreWeight):
+        addSumScore(self.stockData,priceScoreWeight)
+        return self
 # %% [markdown]
 # function to calculate MA and EMA, Score
 
@@ -179,111 +187,12 @@ def addPriceScore(pricesDF):
     pricesDF['PriceScore'] = score
 
 
-def addSumScore(pricesDF):
+def addSumScore(pricesDF,priceScoreWeight):
     score = []
     for i in range(len(pricesDF)):
         score.append(
-            (pricesDF.iloc[i]['PriceScore']*0.3)
-            + (pricesDF.iloc[i]['MAScore']*0.7))
+            (pricesDF.iloc[i]['PriceScore']*priceScoreWeight)
+            + (pricesDF.iloc[i]['MAScore']*(1-priceScoreWeight)))
 
     pricesDF['SumScore'] = score
 
-# %% [markdown]
-# Plot stock data
-
-# %%
-
-
-text_kw = dict(ha="center", va="center", size=20)
-
-
-def plotStock(prices_df):
-    prices_df['Close'].plot(figsize=(15, 7), label='Close', c='black')
-    prices_df['MA20'].plot(label='MA20', c='red', linestyle='dashed')
-    prices_df['EMA20'].plot(label='EMA20', c='red')
-    prices_df['MA60'].plot(label='MA60', c='orange', linestyle='dashed')
-    prices_df['EMA60'].plot(label='EMA60', c='orange')
-    prices_df['MA120'].plot(label='MA120', c='blue', linestyle='dashed')
-    prices_df['EMA120'].plot(label='EMA120', c='blue')
-    prices_df['MA250'].plot(label='MA250', c='green', linestyle='dashed')
-    prices_df['EMA250'].plot(label='EMA250', c='green')
-    prices_df['SumScore'].plot(label='Sumscore', c='yellow')
-    plt.legend()
-
-
-def plotSumScoreHeatMap(scoredf, ax):
-    score = scoredf['SumScore'].to_numpy().reshape([1, len(scoredf)])
-    sns.heatmap(score, vmin=0, vmax=100, cmap="RdYlGn", cbar=False, ax=ax, center=80, yticklabels=False,
-                xticklabels=False,
-                square=True, annot_kws={'rotation': 90})
-
-
-def plotVolume(stockDF, ax):
-    volume = stockDF.tail(20)['Volume']
-    x_values = [f'{x:%Y-%m-%d}' for x in volume.index]
-    ax.bar(x_values, volume.values)
-    ax.axis('off')
-
-
-def plotPrice(stockDF, ax):
-    price = stockDF.tail(20)['Close']
-    x_values = [f'{x:%Y-%m-%d}' for x in price.index]
-    y = price.values
-    ax.plot(x_values, y)
-    x_index_max = np.argmax(y)
-    x_index_min = np.argmin(y)
-    ax.annotate('max', (x_index_max, y[x_index_max]), color='green')
-    ax.annotate('min', (x_index_min, y[x_index_min]), color='red')
-    ax.axis('off')
-
-
-def plotText(text, ax, color='White'):
-    kw = dict(text_kw)
-    kw['backgroundcolor'] = color
-    ax.text(0.5, 0.5, text, horizontalalignment='center',
-            verticalalignment='center', **kw)
-    ax.axis('off')
-
-
-def plotStockList(stockList, tableTitle='Stock Table', time=None):
-    if len(stockList) == 0:
-        return
-
-    title = ['Symbol', 'Price', 'Chg', '%Chg',
-             'Price Line', 'Volume', 'Score Heat Map']
-    f, ax = plt.subplots(nrows=len(stockList)+1, ncols=len(title), figsize=(20, 10), gridspec_kw={
-                         'width_ratios': [2, 1, 1, 1, 3, 3, 5]})
-    time = str(stockList[0].stockData.index[-1])[0:10]
-    plt.suptitle(tableTitle+"  "+time, size=30)
-    for i in range(len(title)):
-        plotText(title[i], ax[0][i], 'Grey')
-    for i in range(len(stockList)):
-        color = 'Green' if stockList[i].stockData.iloc[-1]['Chg'] >= 0 else 'Red'
-        plotText(stockList[i].label, ax[i+1][0])
-        plotText(stockList[i].stockData.iloc[-1]['Close'], ax[i+1][1], color)
-        plotText(stockList[i].stockData.iloc[-1]['Chg'], ax[i+1][2], color)
-        plotText(stockList[i].stockData.iloc[-1]['%Chg'], ax[i+1][3], color)
-        plotPrice(stockList[i].stockData, ax[i+1][4])
-        plotVolume(stockList[i].stockData, ax[i+1][5])
-        plotSumScoreHeatMap(stockList[i].stockData.tail(20), ax[i+1][-1])
-    plt.show()
-
-
-def plotMarkitData():
-    adapter = dataAdapter.MarkitDataHelper()
-    dfNAHY = pd.DataFrame(adapter.getCDX_NA_HY(), columns=[
-                          'Name', 'Value', 'Date']).set_index('Date')
-    dfNAIG = pd.DataFrame(adapter.getCDX_NA_IG(), columns=[
-                          'Name', 'Value', 'Date']).set_index('Date')
-    dfNAHY['Value'] = pd.to_numeric(dfNAHY.Value, errors='coerce')
-    dfNAIG['Value'] = pd.to_numeric(dfNAIG.Value, errors='coerce')
-    dfNAHY['Value'].plot(figsize=(15, 7), title='Markit Data ' +
-                         str(dfNAHY.index[-1]), label='NA.HY')
-    dfNAIG['Value'].plot(label='NA.IG')
-    dfNAHYMean = dfNAHY['Value'].mean()
-    dfNAIGMean = dfNAIG['Value'].mean()
-    plt.hlines(
-        dfNAIGMean, xmin=dfNAIG.index[0], xmax=dfNAIG.index[-1], colors='green')
-    plt.hlines(
-        dfNAHYMean, xmin=dfNAHY.index[0], xmax=dfNAHY.index[-1], colors='green')
-    plt.legend()
