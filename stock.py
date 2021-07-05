@@ -15,7 +15,8 @@ import matplotlib.pyplot as plt
 import matplotlib.colors as colors
 import seaborn as sns
 import matplotlib
-
+import requests
+from io import StringIO
 sns.set_theme()
 
 # %% [markdown]
@@ -29,29 +30,46 @@ sns.set_theme()
 
 # %%
 class Stock:
-    def __init__(self,  label, start=None, end=None,priceScoreWeight=0.7):
+    def __init__(self,  label, start=None, end=None, priceScoreWeight=0.7):
         self.label = label
         self.start = start
         self.end = end
-        if priceScoreWeight >1 or priceScoreWeight <0:
-            priceScoreWeight=0.5
-        self.priceScoreWeight=priceScoreWeight
+        if priceScoreWeight > 1 or priceScoreWeight < 0:
+            priceScoreWeight = 0.5
+        self.priceScoreWeight = priceScoreWeight
         self.stockData = self.getStockData()
 
+    def requestData(self):
+
+        csv_url = 'https://query1.finance.yahoo.com/v7/finance/download/{stockLabel}?period1={start}&period2={end}&interval=1d&events=history'.format(
+            stockLabel=self.label,
+            start=self.start.strftime("%s"),
+            end=self.end.strftime("%s")
+        )
+
+        req = requests.get(csv_url)
+        url_content = req.content
+        # print(url_content)
+        s = str(url_content, 'utf-8')
+
+        data = StringIO(s)
+
+        return pd.read_csv(data).set_index('Date')
     def getStockData(self):
         if self.start is None or self.end is None:
             self.end = datetime.date.today()
             self.start = self.end - datetime.timedelta(700)
-        stock = web.DataReader(self.label, 'yahoo', self.start, self.end)[
+        stockData = self.requestData()[
             ['Close', 'Volume']].round(2)
-        addMAData(stock)
-        addMAScore(stock)
-        addPriceScore(stock)
-        addSumScore(stock,self.priceScoreWeight)
-        addPriceDelta(stock)
-        return stock
-    def updateSumScore(self,priceScoreWeight):
-        addSumScore(self.stockData,priceScoreWeight)
+        addMAData(stockData)
+        addMAScore(stockData)
+        addPriceScore(stockData)
+        addSumScore(stockData, self.priceScoreWeight)
+        addPriceDelta(stockData)
+        return stockData
+
+    def updateSumScore(self, priceScoreWeight):
+        addSumScore(self.stockData, priceScoreWeight)
         return self
 # %% [markdown]
 # function to calculate MA and EMA, Score
@@ -187,7 +205,7 @@ def addPriceScore(pricesDF):
     pricesDF['PriceScore'] = score
 
 
-def addSumScore(pricesDF,priceScoreWeight):
+def addSumScore(pricesDF, priceScoreWeight):
     score = []
     for i in range(len(pricesDF)):
         score.append(
@@ -195,4 +213,3 @@ def addSumScore(pricesDF,priceScoreWeight):
             + (pricesDF.iloc[i]['MAScore']*(1-priceScoreWeight)))
 
     pricesDF['SumScore'] = score
-
