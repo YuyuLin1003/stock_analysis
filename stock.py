@@ -7,6 +7,7 @@
 #
 
 # %%
+import re
 import pandas_datareader.data as web
 import pandas as pd
 import datetime
@@ -30,7 +31,9 @@ sns.set_theme()
 
 # %%
 class Stock:
-    def __init__(self,  label, start=None, end=None, priceScoreWeight=0.7):
+    def __init__(self,  label=None, start=None, end=None, priceScoreWeight=0.7):
+        if label is None:
+            return
         self.label = label
         self.start = start
         self.end = end
@@ -38,7 +41,6 @@ class Stock:
             priceScoreWeight = 0.5
         self.priceScoreWeight = priceScoreWeight
         self.stockData = self.getStockData()
-
     def requestData(self):
 
         csv_url = 'https://query1.finance.yahoo.com/v7/finance/download/{stockLabel}?period1={start}&period2={end}&interval=1d&events=history'.format(
