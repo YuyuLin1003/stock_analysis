@@ -56,7 +56,7 @@ class Stock:
 
         data = StringIO(s)
 
-        return pd.read_csv(data).set_index('Date')
+        return pd.read_csv(data).set_index('Date').dropna()
     def getStockData(self):
         if self.start is None or self.end is None:
             self.end = datetime.date.today()
