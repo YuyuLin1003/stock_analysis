@@ -42,14 +42,19 @@ class Stock:
         self.priceScoreWeight = priceScoreWeight
         self.stockData = self.getStockData()
     def requestData(self):
-
+        header = {'Connection': 'keep-alive',
+                   'Expires': '-1',
+                   'Upgrade-Insecure-Requests': '1',
+                   'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; WOW64) \
+                   AppleWebKit/537.36 (KHTML, like Gecko) Chrome/54.0.2840.99 Safari/537.36'
+                   }
         csv_url = 'https://query1.finance.yahoo.com/v7/finance/download/{stockLabel}?period1={start}&period2={end}&interval=1d&events=history'.format(
             stockLabel=self.label,
             start=self.start.strftime("%s"),
             end=self.end.strftime("%s")
         )
 
-        req = requests.get(csv_url)
+        req = requests.get(csv_url,headers=header)
         url_content = req.content
         # print(url_content)
         s = str(url_content, 'utf-8')
